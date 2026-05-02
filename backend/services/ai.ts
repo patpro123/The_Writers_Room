@@ -62,6 +62,96 @@ Keep your response to 2-3 sentences max. Be insightful and slightly challenging 
   }
 }
 
+export async function generateShelfPassage(title: string, author: string): Promise<{ passageText: string; questionText: string }> {
+  const systemPrompt = `You are an Oxford University English Literature tutor.
+Select a memorable, thematically rich passage from the specified book (3-5 sentences), then craft one focused Oxbridge-style close reading question.
+You must return ONLY valid JSON with NO markdown, NO backticks:
+{"passageText": "...", "questionText": "..."}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Book: "${title}" by ${author}`,
+      config: { systemInstruction: systemPrompt, temperature: 0.7, responseMimeType: "application/json" }
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (error) {
+    console.error("Shelf passage generation error:", error);
+    throw new Error("Failed to generate passage.");
+  }
+}
+
+export async function generateQuestionForPassage(title: string, author: string, passageText: string): Promise<string> {
+  const systemPrompt = `You are an Oxford University English Literature tutor.
+The student has selected their own passage from a book they are reading.
+Write exactly one focused, Oxbridge-style close reading question for this passage.
+Return ONLY the question — no preamble, no numbering, no explanation.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Book: "${title}" by ${author}\n\nPassage: "${passageText}"`,
+      config: { systemInstruction: systemPrompt, temperature: 0.7 }
+    });
+    return response.text?.trim() || "What technique does the author employ here, and how does it serve the passage's central argument?";
+  } catch (error) {
+    console.error("Question generation error:", error);
+    return "What technique does the author employ here, and how does it serve the passage's central argument?";
+  }
+}
+
+export async function chatAboutBook(
+  book: { title: string; author: string; currentChapter?: number | null },
+  notes: string[],
+  history: { role: string; message: string }[],
+  userMessage: string
+): Promise<string> {
+  const spoilerGuard = book.currentChapter
+    ? `The reader is currently on chapter ${book.currentChapter}. Do NOT reveal, hint at, or discuss anything that happens after this chapter under any circumstances.`
+    : '';
+
+  const notesContext = notes.length > 0
+    ? `\n\nThe reader has written these personal notes about the book:\n${notes.map(n => `- "${n}"`).join('\n')}\nReference these when relevant to show you've been listening.`
+    : '';
+
+  const systemPrompt = `You are Lyra, a warm and passionately curious fellow reader in an intimate book club. You are NOT a teacher, tutor, or librarian.
+You are currently discussing "${book.title}" by ${book.author} with a young reader.
+${spoilerGuard}
+${notesContext}
+
+Your voice:
+- Ask exactly ONE thoughtful question at the end of each response (or make one provocative observation)
+- Be warm, enthusiastic, and intellectually curious — never condescending
+- Draw on the reader's own notes when relevant
+- Keep responses to 3-4 sentences maximum
+- React genuinely to what the reader says — agree, push back gently, or be surprised
+- Never summarise plot. Always push toward themes, feelings, and interpretation`;
+
+  const conversationContext = history.slice(-12).map(h =>
+    `${h.role === 'user' ? 'Reader' : 'Lyra'}: ${h.message}`
+  ).join('\n');
+
+  const fullPrompt = conversationContext
+    ? `${conversationContext}\nReader: ${userMessage}\nLyra:`
+    : `Reader: ${userMessage}\nLyra:`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: fullPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.85,
+      }
+    });
+
+    return response.text?.trim() || "That's such an interesting thought. What made you feel that way about the story?";
+  } catch (error) {
+    console.error("Book Chat Error:", error);
+    return "I got a bit lost in my thoughts there! Could you say that again?";
+  }
+}
+
 export async function generateDeepDive(period: string): Promise<any> {
   const systemPrompt = `You are an Oxford University English Literature Professor. 
 Your task is to generate a new "Deep Dive" study module based on a requested literary period from the Oxford syllabus.

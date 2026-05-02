@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
 import 'dotenv/config';
-import { evaluateDebatePosition, evaluatePassageAnalysis, generateDeepDive } from './services/ai';
+import { evaluateDebatePosition, evaluatePassageAnalysis, generateDeepDive, chatAboutBook, generateShelfPassage, generateQuestionForPassage } from './services/ai';
 
 const prisma = new PrismaClient();
 const app = express();
@@ -418,6 +418,314 @@ app.post('/api/deepdives/:id/progress', authMiddleware, async (req: any, res: an
     res.json(progress);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update progress' });
+  }
+});
+
+// ── Reading Shelf ──────────────────────────────────────────────────────────────
+
+// GET /api/books/google-search?q=
+app.get('/api/books/google-search', authMiddleware, async (req: any, res: any) => {
+  const { q } = req.query;
+  if (!q) return res.status(400).json({ error: 'Query required' });
+
+  try {
+    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q as string)}&maxResults=10&printType=books`;
+    const response = await fetch(url);
+    const data: any = await response.json();
+
+    const books = (data.items || []).map((item: any) => ({
+      googleId: item.id,
+      title: item.volumeInfo?.title || 'Unknown Title',
+      author: (item.volumeInfo?.authors || ['Unknown Author']).join(', '),
+      genre: (item.volumeInfo?.categories || [])[0] || null,
+      coverUrl: item.volumeInfo?.imageLinks?.thumbnail?.replace('http:', 'https:') || null,
+    }));
+
+    res.json(books);
+  } catch (error) {
+    console.error("Google Books search error:", error);
+    res.status(500).json({ error: 'Failed to search books' });
+  }
+});
+
+// GET /api/books
+app.get('/api/books', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const books = await prisma.book.findMany({
+      where: { userId },
+      include: { notes: { orderBy: { createdAt: 'desc' } } },
+      orderBy: { updatedAt: 'desc' }
+    });
+    res.json(books);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch books' });
+  }
+});
+
+// POST /api/books
+app.post('/api/books', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const { title, author, genre, coverUrl, status } = req.body;
+
+    if (!title || !author || !status) {
+      return res.status(400).json({ error: 'title, author, and status are required' });
+    }
+
+    const book = await prisma.book.create({
+      data: { title, author, genre: genre || null, coverUrl: coverUrl || null, status, userId }
+    });
+    res.json(book);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to add book' });
+  }
+});
+
+// PUT /api/books/:id
+app.put('/api/books/:id', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const bookId = parseInt(req.params.id);
+    const { status, currentChapter } = req.body;
+
+    const book = await prisma.book.findUnique({ where: { id: bookId } });
+    if (!book || book.userId !== userId) return res.status(404).json({ error: 'Book not found' });
+
+    const updated = await prisma.book.update({
+      where: { id: bookId },
+      data: {
+        ...(status !== undefined && { status }),
+        ...(currentChapter !== undefined && { currentChapter: currentChapter === null ? null : parseInt(currentChapter) })
+      }
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update book' });
+  }
+});
+
+// DELETE /api/books/:id
+app.delete('/api/books/:id', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const bookId = parseInt(req.params.id);
+
+    const book = await prisma.book.findUnique({ where: { id: bookId } });
+    if (!book || book.userId !== userId) return res.status(404).json({ error: 'Book not found' });
+
+    await prisma.bookChat.deleteMany({ where: { bookId } });
+    await prisma.bookNote.deleteMany({ where: { bookId } });
+    await prisma.book.delete({ where: { id: bookId } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete book' });
+  }
+});
+
+// POST /api/books/:id/notes
+app.post('/api/books/:id/notes', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const bookId = parseInt(req.params.id);
+    const { content, noteType } = req.body;
+
+    if (!content) return res.status(400).json({ error: 'content is required' });
+
+    const book = await prisma.book.findUnique({ where: { id: bookId } });
+    if (!book || book.userId !== userId) return res.status(404).json({ error: 'Book not found' });
+
+    const note = await prisma.bookNote.create({
+      data: { bookId, content, noteType: noteType || null }
+    });
+    res.json(note);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to add note' });
+  }
+});
+
+// DELETE /api/books/:bookId/notes/:noteId
+app.delete('/api/books/:bookId/notes/:noteId', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const bookId = parseInt(req.params.bookId);
+    const noteId = parseInt(req.params.noteId);
+
+    const book = await prisma.book.findUnique({ where: { id: bookId } });
+    if (!book || book.userId !== userId) return res.status(404).json({ error: 'Book not found' });
+
+    await prisma.bookNote.delete({ where: { id: noteId } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete note' });
+  }
+});
+
+// GET /api/books/:id/chat
+app.get('/api/books/:id/chat', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const bookId = parseInt(req.params.id);
+
+    const book = await prisma.book.findUnique({ where: { id: bookId } });
+    if (!book || book.userId !== userId) return res.status(404).json({ error: 'Book not found' });
+
+    const chats = await prisma.bookChat.findMany({
+      where: { bookId },
+      orderBy: { createdAt: 'asc' }
+    });
+    res.json(chats);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch chat' });
+  }
+});
+
+// POST /api/books/:id/chat
+app.post('/api/books/:id/chat', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const bookId = parseInt(req.params.id);
+    const { message } = req.body;
+
+    if (!message) return res.status(400).json({ error: 'message is required' });
+
+    const book = await prisma.book.findUnique({
+      where: { id: bookId },
+      include: { notes: { orderBy: { createdAt: 'desc' }, take: 10 } }
+    });
+    if (!book || book.userId !== userId) return res.status(404).json({ error: 'Book not found' });
+
+    await prisma.bookChat.create({ data: { bookId, role: 'user', message } });
+
+    const history = await prisma.bookChat.findMany({
+      where: { bookId },
+      orderBy: { createdAt: 'asc' },
+      take: 20
+    });
+
+    const aiReply = await chatAboutBook(
+      { title: book.title, author: book.author, currentChapter: book.currentChapter },
+      book.notes.map(n => n.content),
+      history.slice(0, -1).map(h => ({ role: h.role, message: h.message })),
+      message
+    );
+
+    const aiMessage = await prisma.bookChat.create({
+      data: { bookId, role: 'model', message: aiReply }
+    });
+
+    res.json({ reply: aiReply, messageId: aiMessage.id });
+  } catch (error) {
+    console.error("Book chat error:", error);
+    res.status(500).json({ error: 'Failed to process chat message' });
+  }
+});
+
+// ── Shelf Passage Study ────────────────────────────────────────────────────────
+
+// GET /api/books/:id/passages
+app.get('/api/books/:id/passages', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const bookId = parseInt(req.params.id);
+
+    const book = await prisma.book.findUnique({ where: { id: bookId } });
+    if (!book || book.userId !== userId) return res.status(404).json({ error: 'Book not found' });
+
+    const passages = await prisma.bookPassage.findMany({
+      where: { bookId },
+      include: { answers: { where: { userId } } },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(passages.map(p => ({
+      id: p.id,
+      bookId: p.bookId,
+      passageText: p.passageText,
+      questionText: p.questionText,
+      createdAt: p.createdAt,
+      savedAnswer: p.answers[0]?.answer || '',
+      aiFeedback: p.answers[0]?.aiFeedback || ''
+    })));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch passages' });
+  }
+});
+
+// POST /api/books/:id/passages/generate — AI picks a passage from the book
+app.post('/api/books/:id/passages/generate', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const bookId = parseInt(req.params.id);
+
+    const book = await prisma.book.findUnique({ where: { id: bookId } });
+    if (!book || book.userId !== userId) return res.status(404).json({ error: 'Book not found' });
+
+    const { passageText, questionText } = await generateShelfPassage(book.title, book.author);
+
+    const passage = await prisma.bookPassage.create({
+      data: { bookId, passageText, questionText }
+    });
+
+    res.json({ ...passage, savedAnswer: '', aiFeedback: '' });
+  } catch (error) {
+    console.error("Shelf passage generate error:", error);
+    res.status(500).json({ error: 'Failed to generate passage' });
+  }
+});
+
+// POST /api/books/:id/passages/custom — user pastes an excerpt, AI generates question
+app.post('/api/books/:id/passages/custom', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const bookId = parseInt(req.params.id);
+    const { passageText } = req.body;
+
+    if (!passageText) return res.status(400).json({ error: 'passageText required' });
+
+    const book = await prisma.book.findUnique({ where: { id: bookId } });
+    if (!book || book.userId !== userId) return res.status(404).json({ error: 'Book not found' });
+
+    const questionText = await generateQuestionForPassage(book.title, book.author, passageText);
+
+    const passage = await prisma.bookPassage.create({
+      data: { bookId, passageText, questionText }
+    });
+
+    res.json({ ...passage, savedAnswer: '', aiFeedback: '' });
+  } catch (error) {
+    console.error("Custom passage error:", error);
+    res.status(500).json({ error: 'Failed to create passage' });
+  }
+});
+
+// POST /api/books/passages/:passageId/answer — submit analysis, get AI feedback
+app.post('/api/books/passages/:passageId/answer', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const passageId = parseInt(req.params.passageId);
+    const { answer } = req.body;
+
+    if (!answer) return res.status(400).json({ error: 'answer required' });
+
+    const passage = await prisma.bookPassage.findUnique({
+      where: { id: passageId },
+      include: { book: true }
+    });
+    if (!passage || passage.book.userId !== userId) return res.status(404).json({ error: 'Passage not found' });
+
+    const aiFeedback = await evaluatePassageAnalysis(passage.passageText, passage.questionText, answer);
+
+    const result = await prisma.bookPassageAnswer.upsert({
+      where: { userId_passageId: { userId, passageId } },
+      create: { userId, passageId, answer, aiFeedback },
+      update: { answer, aiFeedback }
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error("Passage answer error:", error);
+    res.status(500).json({ error: 'Failed to save answer' });
   }
 });
 

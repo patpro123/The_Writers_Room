@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Home, Flame, BookOpen, Library } from 'lucide-react';
+import { Home, Flame, BookOpen, Library, BookMarked } from 'lucide-react';
 import DailySparkView from './components/DailySparkView';
 import MoodTrackerModal from './components/MoodTrackerModal';
 import ProgressDashboard from './components/ProgressDashboard';
@@ -7,14 +7,17 @@ import JournalView from './components/JournalView';
 import LoginScreen from './components/LoginScreen';
 import DeepDiveLibrary from './components/DeepDiveLibrary';
 import DeepDiveDetail from './components/DeepDiveDetail';
+import ReadingShelf from './components/ReadingShelf';
+import BookDetailPage from './components/BookDetailPage';
 import { API_BASE_URL } from './config';
 import './index.css';
 
 const DISABLE_AUTH = true;
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'progress' | 'journal' | 'deepdives'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'progress' | 'journal' | 'deepdives' | 'shelf'>('home');
   const [selectedDeepDiveId, setSelectedDeepDiveId] = useState<number | null>(null);
+  const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [showMoodTracker, setShowMoodTracker] = useState(false);
   // Auth state
   const [token, setToken] = useState<string | null>(DISABLE_AUTH ? 'mock-token' : localStorage.getItem('token'));
@@ -111,10 +114,21 @@ function App() {
           <DeepDiveLibrary token={token} onSelect={setSelectedDeepDiveId} />
         )}
         {activeTab === 'deepdives' && selectedDeepDiveId && (
-          <DeepDiveDetail 
-            token={token} 
-            deepDiveId={selectedDeepDiveId} 
-            onBack={() => setSelectedDeepDiveId(null)} 
+          <DeepDiveDetail
+            token={token}
+            deepDiveId={selectedDeepDiveId}
+            onBack={() => setSelectedDeepDiveId(null)}
+          />
+        )}
+
+        {activeTab === 'shelf' && !selectedBookId && (
+          <ReadingShelf token={token} onSelectBook={(id) => setSelectedBookId(id)} />
+        )}
+        {activeTab === 'shelf' && selectedBookId && (
+          <BookDetailPage
+            token={token}
+            bookId={selectedBookId}
+            onBack={() => setSelectedBookId(null)}
           />
         )}
       </div>
@@ -141,7 +155,7 @@ function App() {
           <BookOpen size={24} />
           <span>Archive</span>
         </button>
-        <button 
+        <button
           className={`nav-item ${activeTab === 'deepdives' ? 'active' : ''}`}
           onClick={() => {
             setActiveTab('deepdives');
@@ -150,6 +164,16 @@ function App() {
         >
           <Library size={24} />
           <span>Library</span>
+        </button>
+        <button
+          className={`nav-item ${activeTab === 'shelf' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('shelf');
+            setSelectedBookId(null);
+          }}
+        >
+          <BookMarked size={24} />
+          <span>Shelf</span>
         </button>
       </nav>
 

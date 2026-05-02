@@ -18,6 +18,8 @@ model User {
   moodLogs  MoodLog[]
   journalEntries JournalEntry[]
   deepDiveProgress DeepDiveProgress[]
+  books     Book[]
+  passageAnswers BookPassageAnswer[]
 }
 
 model DailySpark {
@@ -97,4 +99,61 @@ model DeepDiveProgress {
   answers     String   // Store answers as stringified JSON
 
   @@unique([userId, deepDiveId])
+}
+
+model Book {
+  id             Int      @id @default(autoincrement())
+  title          String
+  author         String
+  genre          String?
+  coverUrl       String?
+  status         String   // "Want to Read", "Reading", "Completed"
+  currentChapter Int?
+  userId         Int
+  user           User     @relation(fields: [userId], references: [id])
+  notes          BookNote[]
+  chats          BookChat[]
+  passages       BookPassage[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model BookNote {
+  id          Int      @id @default(autoincrement())
+  bookId      Int
+  book        Book     @relation(fields: [bookId], references: [id])
+  content     String
+  noteType    String?  // "Quote", "Thought", "Question"
+  createdAt   DateTime @default(now())
+}
+
+model BookChat {
+  id          Int      @id @default(autoincrement())
+  bookId      Int
+  book        Book     @relation(fields: [bookId], references: [id])
+  role        String   // "user" or "model"
+  message     String
+  createdAt   DateTime @default(now())
+}
+
+model BookPassage {
+  id           Int                 @id @default(autoincrement())
+  bookId       Int
+  book         Book                @relation(fields: [bookId], references: [id])
+  passageText  String
+  questionText String
+  answers      BookPassageAnswer[]
+  createdAt    DateTime            @default(now())
+}
+
+model BookPassageAnswer {
+  id         Int         @id @default(autoincrement())
+  userId     Int
+  user       User        @relation(fields: [userId], references: [id])
+  passageId  Int
+  passage    BookPassage @relation(fields: [passageId], references: [id])
+  answer     String
+  aiFeedback String?
+  createdAt  DateTime    @default(now())
+  @@unique([userId, passageId])
 }
