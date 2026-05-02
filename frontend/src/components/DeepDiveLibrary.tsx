@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookMarked, Sparkles, ExternalLink } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 interface DeepDiveSummary {
   id: number;
@@ -31,7 +32,7 @@ export default function DeepDiveLibrary({ token, onSelect }: Props) {
   const [generating, setGenerating] = useState<string | null>(null);
 
   const fetchLibrary = () => {
-    fetch('http://localhost:3001/api/deepdives', {
+    fetch(`${API_BASE_URL}/api/deepdives`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -52,7 +53,7 @@ export default function DeepDiveLibrary({ token, onSelect }: Props) {
   const handleGenerate = async (period: string) => {
     setGenerating(period);
     try {
-      const res = await fetch('http://localhost:3001/api/deepdives/generate', {
+      const res = await fetch(`${API_BASE_URL}/api/deepdives/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

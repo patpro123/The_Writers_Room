@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Volume2, Send } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 interface Spark {
   id: number;
@@ -17,7 +18,7 @@ export default function DailySparkView({ token }: { token: string }) {
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/spark/today', {
+    fetch(`${API_BASE_URL}/api/spark/today`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -75,7 +76,7 @@ export default function DailySparkView({ token }: { token: string }) {
   const handleSubmit = async () => {
     if (!spark || !response.trim()) return;
     try {
-      await fetch('http://localhost:3001/api/journal', {
+      await fetch(`${API_BASE_URL}/api/journal`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

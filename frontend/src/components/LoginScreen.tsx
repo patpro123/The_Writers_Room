@@ -1,5 +1,6 @@
 import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
+import { API_BASE_URL } from '../config';
 
 interface Props {
   onLoginSuccess: (token: string, user: any) => void;
@@ -8,7 +9,7 @@ interface Props {
 export default function LoginScreen({ onLoginSuccess }: Props) {
   const handleSuccess = async (credentialResponse: any) => {
     try {
-      const res = await fetch('http://localhost:3001/api/auth/google', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: credentialResponse.credential }),

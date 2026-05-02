@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Award, Flame, Zap, GraduationCap, TrendingUp, ChevronRight } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 interface Progress {
   currentStreak: number;
@@ -33,7 +34,7 @@ export default function ProgressDashboard({ token }: { token: string }) {
   const [progress, setProgress] = useState<Progress | null>(null);
 
   useEffect(() => {
-    fetch(`http://localhost:3001/api/progress`, {
+    fetch(`${API_BASE_URL}/api/progress`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())

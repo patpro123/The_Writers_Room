@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 interface JournalEntry {
   id: number;
@@ -17,7 +18,7 @@ export default function JournalView({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`http://localhost:3001/api/journal`, {
+    fetch(`${API_BASE_URL}/api/journal`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())

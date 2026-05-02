@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, FileText, MessageSquare } from 'lucide-react';
 import PassageQuizComponent from './PassageQuizComponent';
 import DebateCardComponent from './DebateCardComponent';
+import { API_BASE_URL } from '../config';
 
 interface Props {
   deepDiveId: number;
@@ -15,7 +16,7 @@ export default function DeepDiveDetail({ deepDiveId, token, onBack }: Props) {
   const [activeTab, setActiveTab] = useState<'passages' | 'debates'>('passages');
 
   useEffect(() => {
-    fetch(`http://localhost:3001/api/deepdives/${deepDiveId}`, {
+    fetch(`${API_BASE_URL}/api/deepdives/${deepDiveId}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -35,7 +36,7 @@ export default function DeepDiveDetail({ deepDiveId, token, onBack }: Props) {
 
   const saveProgress = async (status: string, newAnswers?: any) => {
     try {
-      const res = await fetch(`http://localhost:3001/api/deepdives/${deepDiveId}/progress`, {
+      const res = await fetch(`${API_BASE_URL}/api/deepdives/${deepDiveId}/progress`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

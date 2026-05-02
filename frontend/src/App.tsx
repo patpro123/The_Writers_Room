@@ -7,6 +7,7 @@ import JournalView from './components/JournalView';
 import LoginScreen from './components/LoginScreen';
 import DeepDiveLibrary from './components/DeepDiveLibrary';
 import DeepDiveDetail from './components/DeepDiveDetail';
+import { API_BASE_URL } from './config';
 import './index.css';
 
 const DISABLE_AUTH = true;
@@ -33,7 +34,7 @@ function App() {
     if (!token) return;
 
     // Fetch user details with JWT
-    fetch('http://localhost:3001/api/user/me', {
+    fetch(`${API_BASE_URL}/api/user/me`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => {
@@ -72,7 +73,7 @@ function App() {
   const handleMoodLogged = async (mood: string, reflection: string) => {
     try {
       if (!token) return;
-      await fetch('http://localhost:3001/api/mood', {
+      await fetch(`${API_BASE_URL}/api/mood`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

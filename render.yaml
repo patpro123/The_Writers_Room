@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: writers-room-backend
+    env: node
+    buildCommand: "cd backend && npm install && npx prisma generate"
+    startCommand: "cd backend && npx ts-node index.ts"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
