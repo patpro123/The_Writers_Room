@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Home, Flame, BookOpen, Library } from 'lucide-react';
 import DailySparkView from './components/DailySparkView';
 import MoodTrackerModal from './components/MoodTrackerModal';
@@ -16,8 +16,6 @@ function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'progress' | 'journal' | 'deepdives'>('home');
   const [selectedDeepDiveId, setSelectedDeepDiveId] = useState<number | null>(null);
   const [showMoodTracker, setShowMoodTracker] = useState(false);
-  const [hasLoggedMood, setHasLoggedMood] = useState(false);
-  
   // Auth state
   const [token, setToken] = useState<string | null>(DISABLE_AUTH ? 'mock-token' : localStorage.getItem('token'));
   const [user, setUser] = useState<any>(DISABLE_AUTH ? { name: 'Mock User', id: 1 } : null);
@@ -27,7 +25,6 @@ function App() {
       const lastLogged = localStorage.getItem('lastMoodDate');
       const today = new Date().toDateString();
       if (lastLogged !== today) setShowMoodTracker(true);
-      else setHasLoggedMood(true);
       return;
     }
 
@@ -53,8 +50,6 @@ function App() {
     
     if (lastLogged !== today) {
       setShowMoodTracker(true);
-    } else {
-      setHasLoggedMood(true);
     }
   }, [token]);
 
@@ -82,7 +77,6 @@ function App() {
         body: JSON.stringify({ mood, reflection })
       });
       localStorage.setItem('lastMoodDate', new Date().toDateString());
-      setHasLoggedMood(true);
       setShowMoodTracker(false);
     } catch (err) {
       console.error('Failed to log mood', err);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Volume2, Send } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, FileText, MessageSquare } from 'lucide-react';
 import PassageQuizComponent from './PassageQuizComponent';
 import DebateCardComponent from './DebateCardComponent';

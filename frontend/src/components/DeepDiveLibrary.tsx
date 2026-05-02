@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BookMarked, Sparkles, ExternalLink } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 
@@ -117,7 +117,6 @@ export default function DeepDiveLibrary({ token, onSelect }: Props) {
                 gap: '6px',
                 fontSize: '12px',
                 fontWeight: 600,
-                color: 'var(--color-primary)',
                 backgroundColor: 'var(--color-primary-light)',
                 padding: '6px 12px',
                 borderRadius: '16px',

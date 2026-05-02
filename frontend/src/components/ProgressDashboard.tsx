@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Flame, Zap, GraduationCap, TrendingUp, ChevronRight } from 'lucide-react';
+import { Award, Flame, Zap, GraduationCap } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 
 interface Progress {
