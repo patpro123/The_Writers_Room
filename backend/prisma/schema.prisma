@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  googleId  String?  @unique
+  email     String?  @unique
+  name      String?
+  avatarUrl String?
+  progress  Progress?
+  moodLogs  MoodLog[]
+  journalEntries JournalEntry[]
+  deepDiveProgress DeepDiveProgress[]
+}
+
+model DailySpark {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  dayNumber   Int      @unique // 1 to 30
+  prompt      String
+  category    String   // e.g., "Observation", "Character", "Essay"
+  entries     JournalEntry[]
+}
+
+model JournalEntry {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id])
+  dailySparkId Int
+  dailySpark   DailySpark @relation(fields: [dailySparkId], references: [id])
+  content      String   // the text response
+  audioUrl     String?  // if we ever support saving audio
+}
+
+model MoodLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  mood      String   // "Restless", "Curious", "Stuck", "Flowing", "Sharp"
+  reflection String? // 1 line reflection
+}
+
+model Progress {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @unique
+  user          User     @relation(fields: [userId], references: [id])
+  currentStreak Int      @default(0)
+  longestStreak Int      @default(0)
+  lastSparkDate DateTime?
+  badges        String   // JSON string array or simple CSV for simplicity in phase 1
+  xp            Int      @default(0)
+}
+
+model DeepDive {
+  id          Int      @id @default(autoincrement())
+  title       String
+  author      String
+  description String
+  coverColor  String   // e.g., "var(--color-primary)"
+  period      String?  // Optional for backward compatibility with seeded works
+  passages    PassageQuiz[]
+  debates     DebateCard[]
+  progress    DeepDiveProgress[]
+}
+
+model PassageQuiz {
+  id           Int      @id @default(autoincrement())
+  deepDiveId   Int
+  deepDive     DeepDive @relation(fields: [deepDiveId], references: [id])
+  passageText  String
+  questionText String
+}
+
+model DebateCard {
+  id           Int      @id @default(autoincrement())
+  deepDiveId   Int
+  deepDive     DeepDive @relation(fields: [deepDiveId], references: [id])
+  claim        String
+}
+
+model DeepDiveProgress {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  deepDiveId  Int
+  deepDive    DeepDive @relation(fields: [deepDiveId], references: [id])
+  status      String   // "NOT_STARTED", "EXPLORING", "COMPLETED"
+  answers     String   // Store answers as stringified JSON
+
+  @@unique([userId, deepDiveId])
+}
