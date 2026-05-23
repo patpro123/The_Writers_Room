@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
+import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 
 interface Props {
@@ -164,6 +165,97 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        backgroundColor: 'var(--color-bg)',
+        padding: '24px',
+        textAlign: 'center',
+        animation: 'fadeIn 0.3s ease-in-out'
+      }}>
+        <style>{`
+          @keyframes pulseRing {
+            0% { transform: scale(0.85); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 0.15; }
+            100% { transform: scale(0.85); opacity: 0.5; }
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+        
+        {/* Pulsing Loading Animation */}
+        <div style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '32px'
+        }}>
+          {/* Pulsing ring */}
+          <div style={{
+            position: 'absolute',
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            border: '2px solid var(--color-primary)',
+            animation: 'pulseRing 2s infinite ease-in-out'
+          }} />
+          {/* Rotating Spinner */}
+          <Loader2 
+            size={40} 
+            style={{ 
+              color: 'var(--color-primary)', 
+              animation: 'spin 1.2s linear infinite' 
+            }} 
+          />
+        </div>
+
+        <h2 className="font-serif mb-2" style={{ fontSize: '24px', color: 'var(--color-primary)' }}>
+          Warming up the room...
+        </h2>
+        
+        <p style={{ 
+          color: 'var(--color-text)', 
+          fontSize: '15px', 
+          maxWidth: '320px', 
+          lineHeight: '1.5',
+          marginBottom: '28px'
+        }}>
+          Please wait while we connect to the server and organize your writing space.
+        </p>
+
+        {/* Cold-start info notice */}
+        <div style={{
+          backgroundColor: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '18px 20px',
+          maxWidth: '340px',
+          boxShadow: 'var(--shadow-sm)',
+          fontSize: '12px',
+          color: 'var(--color-text-muted)',
+          lineHeight: '1.4',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          <strong style={{ color: 'var(--color-primary)' }}>Notice on Cold Starts:</strong>
+          <span>
+            If the application has been inactive for a while, the backend container might take up to 40 seconds to spin up.
+          </span>
+          <span>Thank you for your patience! 🕯️</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{

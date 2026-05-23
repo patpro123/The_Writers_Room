@@ -169,57 +169,87 @@ export const Phase2View: React.FC<Phase2ViewProps> = ({
   const startPhaseQuiz = () => {
     const generated: QuizQuestion[] = [];
 
-    // Q1: Vocab word translation (English to Bengali)
-    const w1 = VOCAB_WORDS[Math.floor(Math.random() * VOCAB_WORDS.length)];
-    const w1Others = shuffleArray(VOCAB_WORDS.filter(w => w.word !== w1.word).map(w => w.word)).slice(0, 3);
-    const q1Opts = shuffleArray([w1.word, ...w1Others]);
-    generated.push({
-      question: `Which of the following is the Bengali word for "${w1.meaning}"?`,
-      options: q1Opts,
-      correct: q1Opts.indexOf(w1.word)
-    });
-
-    // Q2: Vocab word translation (Bengali to English)
-    const w2 = VOCAB_WORDS[Math.floor(Math.random() * VOCAB_WORDS.length)];
-    const w2Others = shuffleArray(VOCAB_WORDS.filter(w => w.word !== w2.word).map(w => w.meaning)).slice(0, 3);
-    const q2Opts = shuffleArray([w2.meaning, ...w2Others]);
-    generated.push({
-      question: `What does the Bengali word "${w2.word}" (${w2.sound}) mean in English?`,
-      options: q2Opts,
-      correct: q2Opts.indexOf(w2.meaning)
-    });
-
-    // Q3: Primer word meaning
-    const allPrimerWords = BASIC_PRIMERS.flatMap(p => p.words);
-    const pw = allPrimerWords[Math.floor(Math.random() * allPrimerWords.length)];
-    const pwOthers = shuffleArray(allPrimerWords.filter(w => w.word !== pw.word).map(w => w.meaning)).slice(0, 3);
-    const q3Opts = shuffleArray([pw.meaning, ...pwOthers]);
-    generated.push({
-      question: `In the primary readings (Borno Porichoy/Sahaj Path), what does "${pw.word}" mean?`,
-      options: q3Opts,
-      correct: q3Opts.indexOf(pw.meaning)
-    });
-
-    // Q4: Primer sentence translation
-    const allPrimerSentences = BASIC_PRIMERS.flatMap(p => p.sentences);
-    const ps1 = allPrimerSentences[Math.floor(Math.random() * allPrimerSentences.length)];
-    const ps1Others = shuffleArray(allPrimerSentences.filter(s => s.text !== ps1.text).map(s => s.translation)).slice(0, 3);
-    const q4Opts = shuffleArray([ps1.translation, ...ps1Others]);
-    generated.push({
-      question: `Translate this primary reading sentence: "${ps1.text}"`,
-      options: q4Opts,
-      correct: q4Opts.indexOf(ps1.translation)
-    });
-
-    // Q5: Primer sentence pronunciation
-    const ps2 = allPrimerSentences[Math.floor(Math.random() * allPrimerSentences.length)];
-    const ps2Others = shuffleArray(allPrimerSentences.filter(s => s.text !== ps2.text).map(s => s.sound)).slice(0, 3);
-    const q5Opts = shuffleArray([ps2.sound, ...ps2Others]);
-    generated.push({
-      question: `How is the classic line "${ps2.text}" pronounced phonetically?`,
-      options: q5Opts,
-      correct: q5Opts.indexOf(ps2.sound)
-    });
+    if (activeTab === 'vocab') {
+      const shuffledVocab = shuffleArray(VOCAB_WORDS);
+      for (let i = 0; i < Math.min(5, shuffledVocab.length); i++) {
+        const w = shuffledVocab[i];
+        const qType = Math.floor(Math.random() * 3); // 0: English to Bengali, 1: Bengali to English, 2: Pronunciation
+        
+        if (qType === 0) {
+          const others = shuffleArray(VOCAB_WORDS.filter(x => x.word !== w.word).map(x => x.word)).slice(0, 3);
+          const opts = shuffleArray([w.word, ...others]);
+          generated.push({
+            question: `Which of the following is the Bengali word for "${w.meaning}"?`,
+            options: opts,
+            correct: opts.indexOf(w.word)
+          });
+        } else if (qType === 1) {
+          const others = shuffleArray(VOCAB_WORDS.filter(x => x.word !== w.word).map(x => x.meaning)).slice(0, 3);
+          const opts = shuffleArray([w.meaning, ...others]);
+          generated.push({
+            question: `What does the Bengali word "${w.word}" (${w.sound}) mean in English?`,
+            options: opts,
+            correct: opts.indexOf(w.meaning)
+          });
+        } else {
+          const others = shuffleArray(VOCAB_WORDS.filter(x => x.word !== w.word).map(x => x.sound)).slice(0, 3);
+          const opts = shuffleArray([w.sound, ...others]);
+          generated.push({
+            question: `What is the phonetic pronunciation (sound representation) of the word "${w.word}"?`,
+            options: opts,
+            correct: opts.indexOf(w.sound)
+          });
+        }
+      }
+    } else {
+      // activeTab === 'primers'
+      const allWords = BASIC_PRIMERS.flatMap(p => p.words.map(w => ({ ...w, primerTitle: p.title })));
+      const allSentences = BASIC_PRIMERS.flatMap(p => p.sentences.map(s => ({ ...s, primerTitle: p.title })));
+      
+      // We will generate 5 questions: mix of word meanings, sentence translations, sentence pronunciations, and author matching.
+      for (let i = 0; i < 5; i++) {
+        const qType = Math.floor(Math.random() * 4); // 0: word meaning, 1: sentence translation, 2: sentence pronunciation, 3: author matching
+        
+        if (qType === 0 && allWords.length > 0) {
+          const w = allWords[Math.floor(Math.random() * allWords.length)];
+          const others = shuffleArray(allWords.filter(x => x.word !== w.word).map(x => x.meaning)).slice(0, 3);
+          const opts = shuffleArray([w.meaning, ...others]);
+          generated.push({
+            question: `In the primary readings (from "${w.primerTitle}"), what does the word "${w.word}" mean?`,
+            options: opts,
+            correct: opts.indexOf(w.meaning)
+          });
+        } else if (qType === 1 && allSentences.length > 0) {
+          const s = allSentences[Math.floor(Math.random() * allSentences.length)];
+          const others = shuffleArray(allSentences.filter(x => x.text !== s.text).map(x => x.translation)).slice(0, 3);
+          const opts = shuffleArray([s.translation, ...others]);
+          generated.push({
+            question: `Translate this primary reading line: "${s.text}"`,
+            options: opts,
+            correct: opts.indexOf(s.translation)
+          });
+        } else if (qType === 2 && allSentences.length > 0) {
+          const s = allSentences[Math.floor(Math.random() * allSentences.length)];
+          const others = shuffleArray(allSentences.filter(x => x.text !== s.text).map(x => x.sound)).slice(0, 3);
+          const opts = shuffleArray([s.sound, ...others]);
+          generated.push({
+            question: `How is the classic line "${s.text}" pronounced phonetically?`,
+            options: opts,
+            correct: opts.indexOf(s.sound)
+          });
+        } else {
+          // Author matching
+          const p = BASIC_PRIMERS[Math.floor(Math.random() * BASIC_PRIMERS.length)];
+          const others = shuffleArray(BASIC_PRIMERS.filter(x => x.title !== p.title).map(x => x.author)).slice(0, 3);
+          const opts = shuffleArray([p.author, ...others]);
+          generated.push({
+            question: `Who is the author of the Bengali primer titled "${p.title}"?`,
+            options: opts,
+            correct: opts.indexOf(p.author)
+          });
+        }
+      }
+    }
 
     setQuizQuestions(generated);
     setQuizScore(0);

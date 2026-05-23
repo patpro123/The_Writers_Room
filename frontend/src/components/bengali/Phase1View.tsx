@@ -149,56 +149,172 @@ export const Phase1View: React.FC<Phase1ViewProps> = ({
   // Quiz Handlers
   const startPhaseQuiz = () => {
     const generated: QuizQuestion[] = [];
-    
-    // Q1: Vowel sound
-    const v1 = VOWELS[Math.floor(Math.random() * VOWELS.length)];
-    const v1Others = shuffleArray(VOWELS.filter(v => v.letter !== v1.letter).map(v => v.sound)).slice(0, 3);
-    const q1Opts = shuffleArray([v1.sound, ...v1Others]);
-    generated.push({
-      question: `What phonetic sound does the vowel "${v1.letter}" make?`,
-      options: q1Opts,
-      correct: q1Opts.indexOf(v1.sound)
-    });
 
-    // Q2: Consonant sound
-    const c1 = CONSONANTS[Math.floor(Math.random() * CONSONANTS.length)];
-    const c1Others = shuffleArray(CONSONANTS.filter(c => c.letter !== c1.letter).map(c => c.sound)).slice(0, 3);
-    const q2Opts = shuffleArray([c1.sound, ...c1Others]);
-    generated.push({
-      question: `What is the sound representation for the consonant "${c1.letter}"?`,
-      options: q2Opts,
-      correct: q2Opts.indexOf(c1.sound)
-    });
-
-    // Q3: Matra symbol
-    const m1 = BENGALI_MATRAS[Math.floor(Math.random() * BENGALI_MATRAS.length)];
-    const m1Others = shuffleArray(BENGALI_MATRAS.filter(m => m.symbol !== m1.symbol).map(m => m.symbol)).slice(0, 3);
-    const q3Opts = shuffleArray([m1.symbol, ...m1Others]);
-    generated.push({
-      question: `Which symbol represents the Matra "${m1.name}"?`,
-      options: q3Opts,
-      correct: q3Opts.indexOf(m1.symbol)
-    });
-
-    // Q4: Juktakhor components
-    const j1 = BENGALI_JUKTAKHOR[Math.floor(Math.random() * BENGALI_JUKTAKHOR.length)];
-    const j1Others = shuffleArray(BENGALI_JUKTAKHOR.filter(j => j.symbol !== j1.symbol).map(j => j.components)).slice(0, 3);
-    const q4Opts = shuffleArray([j1.components, ...j1Others]);
-    generated.push({
-      question: `What are the constituent characters in the Juktakhor (conjunct) "${j1.symbol}"?`,
-      options: q4Opts,
-      correct: q4Opts.indexOf(j1.components)
-    });
-
-    // Q5: Vowel example word
-    const v2 = VOWELS[Math.floor(Math.random() * VOWELS.length)];
-    const v2Others = shuffleArray(VOWELS.filter(v => v.letter !== v2.letter).map(v => v.example)).slice(0, 3);
-    const q5Opts = shuffleArray([v2.example, ...v2Others]);
-    generated.push({
-      question: `Which of the following is a classic example word starting with the vowel "${v2.letter}"?`,
-      options: q5Opts,
-      correct: q5Opts.indexOf(v2.example)
-    });
+    if (activeTab === 'vowels') {
+      const shuffledVowels = shuffleArray(VOWELS);
+      for (let i = 0; i < Math.min(5, shuffledVowels.length); i++) {
+        const v = shuffledVowels[i];
+        const qType = Math.floor(Math.random() * 4); // 0: sound, 1: desc, 2: example, 3: match letter
+        
+        if (qType === 0) {
+          const others = shuffleArray(VOWELS.filter(x => x.letter !== v.letter).map(x => x.sound)).slice(0, 3);
+          const opts = shuffleArray([v.sound, ...others]);
+          generated.push({
+            question: `What phonetic sound does the vowel "${v.letter}" make?`,
+            options: opts,
+            correct: opts.indexOf(v.sound)
+          });
+        } else if (qType === 1) {
+          const others = shuffleArray(VOWELS.filter(x => x.letter !== v.letter).map(x => x.desc)).slice(0, 3);
+          const opts = shuffleArray([v.desc, ...others]);
+          generated.push({
+            question: `Which of the following best describes the pronunciation of the vowel "${v.letter}"?`,
+            options: opts,
+            correct: opts.indexOf(v.desc)
+          });
+        } else if (qType === 2) {
+          const correctText = `${v.example} (${v.exTrans})`;
+          const others = shuffleArray(VOWELS.filter(x => x.letter !== v.letter).map(x => `${x.example} (${x.exTrans})`)).slice(0, 3);
+          const opts = shuffleArray([correctText, ...others]);
+          generated.push({
+            question: `Which of the following is a classic example word starting with the vowel "${v.letter}"?`,
+            options: opts,
+            correct: opts.indexOf(correctText)
+          });
+        } else {
+          const others = shuffleArray(VOWELS.filter(x => x.letter !== v.letter).map(x => x.letter)).slice(0, 3);
+          const opts = shuffleArray([v.letter, ...others]);
+          generated.push({
+            question: `Which Bengali vowel represents the sound "${v.sound}"?`,
+            options: opts,
+            correct: opts.indexOf(v.letter)
+          });
+        }
+      }
+    } else if (activeTab === 'consonants') {
+      const shuffledCons = shuffleArray(CONSONANTS);
+      for (let i = 0; i < Math.min(5, shuffledCons.length); i++) {
+        const c = shuffledCons[i];
+        const qType = Math.floor(Math.random() * 4); // 0: sound, 1: desc, 2: example, 3: match letter
+        
+        if (qType === 0) {
+          const others = shuffleArray(CONSONANTS.filter(x => x.letter !== c.letter).map(x => x.sound)).slice(0, 3);
+          const opts = shuffleArray([c.sound, ...others]);
+          generated.push({
+            question: `What phonetic sound does the consonant "${c.letter}" make?`,
+            options: opts,
+            correct: opts.indexOf(c.sound)
+          });
+        } else if (qType === 1) {
+          const others = shuffleArray(CONSONANTS.filter(x => x.letter !== c.letter).map(x => x.desc)).slice(0, 3);
+          const opts = shuffleArray([c.desc, ...others]);
+          generated.push({
+            question: `Which of the following best describes the pronunciation of the consonant "${c.letter}"?`,
+            options: opts,
+            correct: opts.indexOf(c.desc)
+          });
+        } else if (qType === 2) {
+          const correctText = `${c.example} (${c.exTrans})`;
+          const others = shuffleArray(CONSONANTS.filter(x => x.letter !== c.letter).map(x => `${x.example} (${x.exTrans})`)).slice(0, 3);
+          const opts = shuffleArray([correctText, ...others]);
+          generated.push({
+            question: `Which of the following is a classic example word starting with the consonant "${c.letter}"?`,
+            options: opts,
+            correct: opts.indexOf(correctText)
+          });
+        } else {
+          const others = shuffleArray(CONSONANTS.filter(x => x.letter !== c.letter).map(x => x.letter)).slice(0, 3);
+          const opts = shuffleArray([c.letter, ...others]);
+          generated.push({
+            question: `Which Bengali consonant represents the sound "${c.sound}"?`,
+            options: opts,
+            correct: opts.indexOf(c.letter)
+          });
+        }
+      }
+    } else if (activeTab === 'matras') {
+      const shuffledMatras = shuffleArray(BENGALI_MATRAS);
+      for (let i = 0; i < Math.min(5, shuffledMatras.length); i++) {
+        const m = shuffledMatras[i];
+        const qType = Math.floor(Math.random() * 4); // 0: symbol for name, 1: sound for symbol, 2: example for symbol, 3: meaning of example
+        
+        if (qType === 0) {
+          const others = shuffleArray(BENGALI_MATRAS.filter(x => x.symbol !== m.symbol).map(x => x.symbol)).slice(0, 3);
+          const opts = shuffleArray([m.symbol, ...others]);
+          generated.push({
+            question: `Which symbol represents the Matra "${m.name}"?`,
+            options: opts,
+            correct: opts.indexOf(m.symbol)
+          });
+        } else if (qType === 1) {
+          const others = shuffleArray(BENGALI_MATRAS.filter(x => x.symbol !== m.symbol).map(x => x.sound)).slice(0, 3);
+          const opts = shuffleArray([m.sound, ...others]);
+          generated.push({
+            question: `What phonetic sound does the Matra symbol "${m.symbol}" make?`,
+            options: opts,
+            correct: opts.indexOf(m.sound)
+          });
+        } else if (qType === 2) {
+          const others = shuffleArray(BENGALI_MATRAS.filter(x => x.symbol !== m.symbol).map(x => x.example)).slice(0, 3);
+          const opts = shuffleArray([m.example, ...others]);
+          generated.push({
+            question: `Which of the following is an example of using the Matra "${m.symbol}" in a syllable/word?`,
+            options: opts,
+            correct: opts.indexOf(m.example)
+          });
+        } else {
+          const others = shuffleArray(BENGALI_MATRAS.filter(x => x.symbol !== m.symbol).map(x => x.meaning)).slice(0, 3);
+          const opts = shuffleArray([m.meaning, ...others]);
+          generated.push({
+            question: `What is the meaning of the example word "${m.example}" (which uses the Matra "${m.symbol}")?`,
+            options: opts,
+            correct: opts.indexOf(m.meaning)
+          });
+        }
+      }
+    } else {
+      // juktakhor
+      const shuffledJuk = shuffleArray(BENGALI_JUKTAKHOR);
+      for (let i = 0; i < Math.min(5, shuffledJuk.length); i++) {
+        const j = shuffledJuk[i];
+        const qType = Math.floor(Math.random() * 4); // 0: components, 1: sound, 2: name, 3: example word
+        
+        if (qType === 0) {
+          const others = shuffleArray(BENGALI_JUKTAKHOR.filter(x => x.symbol !== j.symbol).map(x => x.components)).slice(0, 3);
+          const opts = shuffleArray([j.components, ...others]);
+          generated.push({
+            question: `What are the constituent characters in the Juktakhor (conjunct) "${j.symbol}"?`,
+            options: opts,
+            correct: opts.indexOf(j.components)
+          });
+        } else if (qType === 1) {
+          const others = shuffleArray(BENGALI_JUKTAKHOR.filter(x => x.symbol !== j.symbol).map(x => x.sound)).slice(0, 3);
+          const opts = shuffleArray([j.sound, ...others]);
+          generated.push({
+            question: `What phonetic sound does the Juktakhor (conjunct) "${j.symbol}" represent?`,
+            options: opts,
+            correct: opts.indexOf(j.sound)
+          });
+        } else if (qType === 2) {
+          const others = shuffleArray(BENGALI_JUKTAKHOR.filter(x => x.symbol !== j.symbol).map(x => x.name)).slice(0, 3);
+          const opts = shuffleArray([j.name, ...others]);
+          generated.push({
+            question: `What is the phonetic name of the Juktakhor conjunct "${j.symbol}"?`,
+            options: opts,
+            correct: opts.indexOf(j.name)
+          });
+        } else {
+          const correctText = `${j.example} (${j.meaning})`;
+          const others = shuffleArray(BENGALI_JUKTAKHOR.filter(x => x.symbol !== j.symbol).map(x => `${x.example} (${x.meaning})`)).slice(0, 3);
+          const opts = shuffleArray([correctText, ...others]);
+          generated.push({
+            question: `Which of the following is a classic example word using the Juktakhor "${j.symbol}"?`,
+            options: opts,
+            correct: opts.indexOf(correctText)
+          });
+        }
+      }
+    }
 
     setQuizQuestions(generated);
     setQuizScore(0);
