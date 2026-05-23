@@ -12,7 +12,7 @@ import BookDetailPage from './components/BookDetailPage';
 import { API_BASE_URL } from './config';
 import './index.css';
 
-const DISABLE_AUTH = true;
+const DISABLE_AUTH = false;
 
 function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'progress' | 'journal' | 'deepdives' | 'shelf'>('home');

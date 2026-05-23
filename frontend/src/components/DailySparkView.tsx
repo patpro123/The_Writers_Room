@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Volume2, Send } from 'lucide-react';
 import { API_BASE_URL } from '../config';
+import DailyObservationLyraChat from './DailyObservationLyraChat';
 
 interface Spark {
   id: number;
@@ -9,12 +10,19 @@ interface Spark {
   category: string;
 }
 
+interface SubmissionResponse {
+  id: number;
+  [key: string]: any;
+}
+
 export default function DailySparkView({ token }: { token: string }) {
   const [spark, setSpark] = useState<Spark | null>(null);
   const [response, setResponse] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  
+  const [showLyraChat, setShowLyraChat] = useState(false);
+  const [journalEntryId, setJournalEntryId] = useState<number | null>(null);
+
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -31,11 +39,11 @@ export default function DailySparkView({ token }: { token: string }) {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
-      
+
       recognitionRef.current.onresult = (event: any) => {
         let interimTranscript = '';
         let finalTranscript = '';
-        
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript;
@@ -43,12 +51,12 @@ export default function DailySparkView({ token }: { token: string }) {
             interimTranscript += event.results[i][0].transcript;
           }
         }
-        
+
         if (finalTranscript) {
           setResponse(prev => prev + ' ' + finalTranscript.trim());
         }
       };
-      
+
       recognitionRef.current.onend = () => {
         setIsListening(false);
       };
@@ -76,14 +84,16 @@ export default function DailySparkView({ token }: { token: string }) {
   const handleSubmit = async () => {
     if (!spark || !response.trim()) return;
     try {
-      await fetch(`${API_BASE_URL}/api/journal`, {
+      const res = await fetch(`${API_BASE_URL}/api/journal`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ dailySparkId: spark.id, content: response })
       });
+      const data: SubmissionResponse = await res.json();
+      setJournalEntryId(data.id);
       setIsSubmitted(true);
     } catch (err) {
       console.error("Failed to submit response", err);
@@ -96,12 +106,40 @@ export default function DailySparkView({ token }: { token: string }) {
 
   if (isSubmitted) {
     return (
-      <div className="flex flex-col items-center justify-center" style={{ height: '70vh', animation: 'fadeIn 0.5s' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🕯️</div>
-        <h2 className="mb-2 font-serif text-center">Your thought is preserved.</h2>
-        <p style={{ color: 'var(--color-text-muted)', textAlign: 'center' }}>
-          Check your progress to see your updated streak.
-        </p>
+      <div style={{ animation: 'fadeIn 0.5s' }}>
+        <div className="flex flex-col items-center justify-center" style={{ height: '40vh', animation: 'fadeIn 0.5s' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🕯️</div>
+          <h2 className="mb-2 font-serif text-center">Your thought is preserved.</h2>
+          <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', marginBottom: '20px' }}>
+            Check your progress to see your updated streak.
+          </p>
+          {!showLyraChat && journalEntryId && (
+            <button
+              onClick={() => setShowLyraChat(true)}
+              style={{
+                padding: '10px 20px',
+                borderRadius: 'var(--radius-full)',
+                backgroundColor: 'var(--color-primary)',
+                color: '#fff',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'opacity 0.2s'
+              }}
+            >
+              Get Lyra's thoughts
+            </button>
+          )}
+        </div>
+
+        {showLyraChat && journalEntryId && (
+          <DailyObservationLyraChat
+            journalEntryId={journalEntryId}
+            dailyPrompt={spark.prompt}
+            userResponse={response}
+            token={token}
+          />
+        )}
       </div>
     );
   }
@@ -109,12 +147,12 @@ export default function DailySparkView({ token }: { token: string }) {
   return (
     <div style={{ animation: 'fadeIn 0.4s' }}>
       <div className="mb-6 flex justify-between items-center">
-        <span style={{ 
-          fontSize: '12px', 
-          fontWeight: 600, 
-          textTransform: 'uppercase', 
+        <span style={{
+          fontSize: '12px',
+          fontWeight: 600,
+          textTransform: 'uppercase',
           letterSpacing: '1px',
-          color: 'var(--color-primary)' 
+          color: 'var(--color-primary)'
         }}>
           {spark.category} • Day {spark.dayNumber}
         </span>
@@ -147,21 +185,21 @@ export default function DailySparkView({ token }: { token: string }) {
             boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
           }}
         />
-        
-        <div style={{ 
-          position: 'absolute', 
-          bottom: '12px', 
-          left: '12px', 
-          right: '12px', 
-          display: 'flex', 
+
+        <div style={{
+          position: 'absolute',
+          bottom: '12px',
+          left: '12px',
+          right: '12px',
+          display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <button 
+          <button
             onClick={toggleDictation}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
               gap: '6px',
               padding: '8px 12px',
               borderRadius: 'var(--radius-full)',
@@ -174,12 +212,12 @@ export default function DailySparkView({ token }: { token: string }) {
             <span style={{ fontSize: '12px', fontWeight: 500 }}>{isListening ? 'Listening...' : 'Talk'}</span>
           </button>
 
-          <button 
+          <button
             onClick={handleSubmit}
             disabled={!response.trim()}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
               gap: '6px',
               padding: '8px 16px',
               borderRadius: 'var(--radius-full)',

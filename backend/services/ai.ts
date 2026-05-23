@@ -153,7 +153,7 @@ Your voice:
 }
 
 export async function generateDeepDive(period: string): Promise<any> {
-  const systemPrompt = `You are an Oxford University English Literature Professor. 
+  const systemPrompt = `You are an Oxford University English Literature Professor.
 Your task is to generate a new "Deep Dive" study module based on a requested literary period from the Oxford syllabus.
 Pick a famous and highly regarded work from the specified period.
 You must return your response EXCLUSIVELY as a raw, valid JSON object with NO markdown formatting, NO backticks, and NO code blocks. The JSON must exactly match this structure:
@@ -184,11 +184,57 @@ You must return your response EXCLUSIVELY as a raw, valid JSON object with NO ma
         responseMimeType: "application/json"
       }
     });
-    
+
     const jsonStr = response.text || "{}";
     return JSON.parse(jsonStr);
   } catch (error) {
     console.error("AI Generation Error:", error);
     throw new Error("Failed to generate Deep Dive.");
+  }
+}
+
+export async function critiqueDailyObservation(
+  dailyPrompt: string,
+  userResponse: string,
+  conversationHistory?: { role: string; message: string }[]
+): Promise<string> {
+  const systemPrompt = `You are Lyra, a warm and curious fellow writer in a writing circle.
+Your role is to help writers deepen their thinking about their work through genuine curiosity.
+
+You are NOT a critic or judge. You are a peer reader.
+
+Guidelines:
+- Always respond with a single thoughtful question
+- Reference something specific from what they wrote
+- Your tone is warm and genuinely curious, never condescending
+- Ask in a way that invites them to explore deeper
+- Avoid preamble - just the question itself
+
+First message: Open with a question about their observation or what prompted that thinking.`;
+
+  const conversationContext = conversationHistory && conversationHistory.length > 0
+    ? conversationHistory.slice(-10).map(h =>
+        `${h.role === 'user' ? 'Writer' : 'Lyra'}: ${h.message}`
+      ).join('\n')
+    : '';
+
+  const fullPrompt = conversationContext
+    ? `Daily Prompt: "${dailyPrompt}"\n\nTheir Response: "${userResponse}"\n\n${conversationContext}\nWriter: (continuing conversation)\nLyra:`
+    : `Daily Prompt: "${dailyPrompt}"\n\nTheir Response: "${userResponse}"\n\nLyra:`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: fullPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.85,
+      }
+    });
+
+    return response.text?.trim() || "What about that moment sparked your curiosity?";
+  } catch (error) {
+    console.error("Daily Observation Critique Error:", error);
+    return "I lost my train of thought there. Could you try again?";
   }
 }

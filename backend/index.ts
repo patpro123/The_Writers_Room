@@ -4,13 +4,15 @@ import { PrismaClient } from '@prisma/client';
 import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
 import 'dotenv/config';
-import { evaluateDebatePosition, evaluatePassageAnalysis, generateDeepDive, chatAboutBook, generateShelfPassage, generateQuestionForPassage } from './services/ai';
+import bcrypt from 'bcryptjs';
+import { evaluateDebatePosition, evaluatePassageAnalysis, generateDeepDive, chatAboutBook, generateShelfPassage, generateQuestionForPassage, critiqueDailyObservation } from './services/ai';
 
 const prisma = new PrismaClient();
 const app = express();
 
+const appOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: appOrigin,
   credentials: true
 }));
 app.use(express.json());
@@ -19,7 +21,7 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'TODO_ADD_CLIENT_ID';
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-development-key';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-const DISABLE_AUTH = true;
+const DISABLE_AUTH = false;
 
 // Middleware to verify our custom JWT
 const authMiddleware = async (req: any, res: any, next: any) => {
@@ -108,6 +110,185 @@ app.post('/api/auth/google', async (req, res) => {
   } catch (error) {
     console.error("Auth error:", error);
     res.status(401).json({ error: 'Authentication failed' });
+  }
+});
+
+// POST /api/auth/register
+app.post('/api/auth/register', async (req: any, res: any) => {
+  try {
+    const { username, password, email } = req.body;
+
+    if (!username || !password || !email) {
+      return res.status(400).json({ error: 'Username, password, and email are required' });
+    }
+
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    if (!usernameRegex.test(trimmedUsername)) {
+      return res.status(400).json({ 
+        error: 'Username must be 3-20 characters long and contain only letters, numbers, or underscores' 
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      return res.status(400).json({ error: 'Invalid email address' });
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ 
+        error: 'Password must be at least 8 characters long, and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#)' 
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: trimmedUsername },
+          { email: trimmedUsername },
+          { email: trimmedEmail }
+        ]
+      }
+    });
+
+    if (existingUser) {
+      if (existingUser.username === trimmedUsername) {
+        return res.status(400).json({ error: 'Username is already taken' });
+      }
+      return res.status(400).json({ error: 'Email is already registered' });
+    }
+
+    // Hash password
+    const passwordHash = bcrypt.hashSync(password, 10);
+
+    // Create user
+    const user = await prisma.user.create({
+      data: {
+        username: trimmedUsername,
+        passwordHash,
+        email: trimmedEmail,
+        name: trimmedUsername
+      }
+    });
+
+    // Initialize progress for user
+    await prisma.progress.create({
+      data: { userId: user.id, badges: '' }
+    });
+
+    // Issue JWT
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+
+    res.status(201).json({ token, user: { id: user.id, username: user.username, name: user.name, email: user.email } });
+  } catch (error) {
+    console.error("Register error:", error);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// POST /api/auth/forgot-password
+app.post('/api/auth/forgot-password', async (req: any, res: any) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email address is required' });
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+
+    // Find user by email
+    const user = await prisma.user.findFirst({
+      where: { email: trimmedEmail }
+    });
+
+    if (!user) {
+      // Return generic success response for security
+      return res.json({ message: 'If this email is registered, a temporary password has been sent.' });
+    }
+
+    // Generate secure temporary password
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const digits = '0123456789';
+    const specials = '@$!%*?&#';
+    
+    let tempPassword = 'Tmp';
+    for (let i = 0; i < 4; i++) {
+      tempPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    for (let i = 0; i < 2; i++) {
+      tempPassword += digits.charAt(Math.floor(Math.random() * digits.length));
+    }
+    tempPassword += specials.charAt(Math.floor(Math.random() * specials.length));
+
+    // Hash new password
+    const passwordHash = bcrypt.hashSync(tempPassword, 10);
+
+    // Save password
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash }
+    });
+
+    // Log the simulated email containing the temporary password to the terminal console
+    console.log('\n==================================================');
+    console.log(`✉️ [SIMULATED EMAIL SENT] TO: ${user.email}`);
+    console.log(`Subject: Your Temporary Password Reset`);
+    console.log(`Hello ${user.name || user.username},`);
+    console.log(`We received a request to reset your password.`);
+    console.log(`Your temporary password is: ${tempPassword}`);
+    console.log(`Please use this temporary password to log in and reset/change your password.`);
+    console.log('==================================================\n');
+
+    res.json({ message: 'If this email is registered, a temporary password has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to process forgot password request' });
+  }
+});
+
+// POST /api/auth/login
+app.post('/api/auth/login', async (req: any, res: any) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    const trimmedUsername = username.trim();
+
+    // Find user
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: trimmedUsername },
+          { email: trimmedUsername }
+        ]
+      }
+    });
+
+    if (!user || !user.passwordHash) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    // Check password
+    const isPasswordValid = bcrypt.compareSync(password, user.passwordHash);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    // Issue JWT
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+
+    res.json({ token, user: { id: user.id, username: user.username, name: user.name, avatarUrl: user.avatarUrl } });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: 'Login failed' });
   }
 });
 
@@ -216,6 +397,81 @@ app.get('/api/journal', authMiddleware, async (req: any, res: any) => {
     res.json(entries);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch journal entries' });
+  }
+});
+
+// DELETE /api/journal/:entryId
+app.delete('/api/journal/:entryId', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const entryId = parseInt(req.params.entryId);
+
+    const entry = await prisma.journalEntry.findUnique({ where: { id: entryId } });
+    if (!entry || entry.userId !== userId) return res.status(404).json({ error: 'Journal entry not found' });
+
+    await prisma.dailyObservationLyraChat.deleteMany({ where: { journalEntryId: entryId } });
+    await prisma.journalEntry.delete({ where: { id: entryId } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete journal entry' });
+  }
+});
+
+// GET /api/journal/:entryId/lyra-chat
+app.get('/api/journal/:entryId/lyra-chat', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const entryId = parseInt(req.params.entryId);
+
+    const entry = await prisma.journalEntry.findUnique({ where: { id: entryId } });
+    if (!entry || entry.userId !== userId) return res.status(404).json({ error: 'Journal entry not found' });
+
+    const chats = await prisma.dailyObservationLyraChat.findMany({
+      where: { journalEntryId: entryId },
+      orderBy: { createdAt: 'asc' }
+    });
+    res.json(chats);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch chat' });
+  }
+});
+
+// POST /api/journal/:entryId/lyra-chat
+app.post('/api/journal/:entryId/lyra-chat', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const entryId = parseInt(req.params.entryId);
+    const { message } = req.body;
+
+    if (!message) return res.status(400).json({ error: 'message is required' });
+
+    const entry = await prisma.journalEntry.findUnique({
+      where: { id: entryId },
+      include: { dailySpark: true }
+    });
+    if (!entry || entry.userId !== userId) return res.status(404).json({ error: 'Journal entry not found' });
+
+    await prisma.dailyObservationLyraChat.create({ data: { journalEntryId: entryId, role: 'user', message } });
+
+    const history = await prisma.dailyObservationLyraChat.findMany({
+      where: { journalEntryId: entryId },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    const aiReply = await critiqueDailyObservation(
+      entry.dailySpark.prompt,
+      entry.content,
+      history.slice(0, -1).map(h => ({ role: h.role, message: h.message }))
+    );
+
+    const aiMessage = await prisma.dailyObservationLyraChat.create({
+      data: { journalEntryId: entryId, role: 'model', message: aiReply }
+    });
+
+    res.json({ reply: aiReply, messageId: aiMessage.id });
+  } catch (error) {
+    console.error("Daily observation chat error:", error);
+    res.status(500).json({ error: 'Failed to process chat message' });
   }
 });
 
@@ -429,7 +685,9 @@ app.get('/api/books/google-search', authMiddleware, async (req: any, res: any) =
   if (!q) return res.status(400).json({ error: 'Query required' });
 
   try {
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q as string)}&maxResults=10&printType=books`;
+    const apiKey = process.env.GOOGLE_BOOKS_API;
+    const keyParam = apiKey ? `&key=${apiKey}` : '';
+    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q as string)}&maxResults=10&printType=books${keyParam}`;
     const response = await fetch(url);
     const data: any = await response.json();
 

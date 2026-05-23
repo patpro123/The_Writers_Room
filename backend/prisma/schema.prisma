@@ -7,18 +7,20 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  googleId  String?  @unique
-  email     String?  @unique
-  name      String?
-  avatarUrl String?
-  progress  Progress?
-  moodLogs  MoodLog[]
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  googleId     String?  @unique
+  email        String?  @unique
+  username     String?  @unique
+  passwordHash String?
+  name         String?
+  avatarUrl    String?
+  progress     Progress?
+  moodLogs     MoodLog[]
   journalEntries JournalEntry[]
   deepDiveProgress DeepDiveProgress[]
-  books     Book[]
+  books        Book[]
   passageAnswers BookPassageAnswer[]
 }
 
@@ -40,6 +42,7 @@ model JournalEntry {
   dailySpark   DailySpark @relation(fields: [dailySparkId], references: [id])
   content      String   // the text response
   audioUrl     String?  // if we ever support saving audio
+  lyraChats    DailyObservationLyraChat[]
 }
 
 model MoodLog {
@@ -156,4 +159,13 @@ model BookPassageAnswer {
   aiFeedback String?
   createdAt  DateTime    @default(now())
   @@unique([userId, passageId])
+}
+
+model DailyObservationLyraChat {
+  id             Int      @id @default(autoincrement())
+  journalEntryId Int
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  role           String   // "user" or "model"
+  message        String
+  createdAt      DateTime @default(now())
 }
