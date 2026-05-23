@@ -11,15 +11,11 @@ interface ChatMessage {
 
 interface DailyObservationLyraChatProps {
   journalEntryId: number;
-  dailyPrompt: string;
-  userResponse: string;
   token: string;
 }
 
 export default function DailyObservationLyraChat({
   journalEntryId,
-  dailyPrompt,
-  userResponse,
   token
 }: DailyObservationLyraChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);

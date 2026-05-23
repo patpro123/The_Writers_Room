@@ -135,8 +135,6 @@ export default function DailySparkView({ token }: { token: string }) {
         {showLyraChat && journalEntryId && (
           <DailyObservationLyraChat
             journalEntryId={journalEntryId}
-            dailyPrompt={spark.prompt}
-            userResponse={response}
             token={token}
           />
         )}
