@@ -54,7 +54,10 @@ export default function ProgressDashboard({ token }: { token: string }) {
   const BADGE_MAP: Record<string, { icon: React.ReactNode, color: string, desc: string }> = {
     'First Spark': { icon: <Zap size={24} />, color: '#F59E0B', desc: 'Wrote your very first response.' },
     '3-Day Streak': { icon: <Flame size={24} />, color: '#EF4444', desc: 'Wrote for 3 consecutive days.' },
-    '7-Day Streak': { icon: <Award size={24} />, color: '#8B5CF6', desc: 'Wrote for 7 consecutive days.' }
+    '7-Day Streak': { icon: <Award size={24} />, color: '#8B5CF6', desc: 'Wrote for 7 consecutive days.' },
+    'Bornomala Master': { icon: <Award size={24} />, color: '#8C4A32', desc: 'Mastered all 50 letters of the Bengali alphabet.' },
+    'Bengali Speaker': { icon: <Award size={24} />, color: '#10B981', desc: 'Evaluated correctly 5 times using vocal speech checking.' },
+    'Bengali Scholar': { icon: <Award size={24} />, color: '#3B82F6', desc: 'Scored 100% on a Bengali learning phase quiz.' }
   };
 
   return (

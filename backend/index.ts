@@ -538,6 +538,297 @@ app.get('/api/progress', authMiddleware, async (req: any, res: any) => {
   }
 });
 
+// ── Bengali Learning Endpoints ───────────────────────────────────────────────
+
+// GET /api/progress/bengali
+app.get('/api/progress/bengali', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    let bp = await prisma.bengaliProgress.findUnique({
+      where: { userId }
+    });
+
+    if (!bp) {
+      bp = await prisma.bengaliProgress.create({
+        data: { userId }
+      });
+    }
+
+    res.json(bp);
+  } catch (error) {
+    console.error("Failed to get Bengali progress:", error);
+    res.status(500).json({ error: 'Failed to fetch Bengali progress' });
+  }
+});
+
+// POST /api/progress/bengali/diagnostic
+app.post('/api/progress/bengali/diagnostic', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const { score } = req.body;
+
+    if (score === undefined || typeof score !== 'number') {
+      return res.status(400).json({ error: 'Valid score is required' });
+    }
+
+    const bp = await prisma.bengaliProgress.upsert({
+      where: { userId },
+      update: { diagnosticScore: score },
+      create: { userId, diagnosticScore: score }
+    });
+
+    res.json(bp);
+  } catch (error) {
+    console.error("Failed to save diagnostic score:", error);
+    res.status(500).json({ error: 'Failed to save diagnostic score' });
+  }
+});
+
+// POST /api/progress/bengali/plan
+app.post('/api/progress/bengali/plan', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const { plan } = req.body; // "2-month", "3-month", "6-month"
+
+    if (!plan || !['2-month', '3-month', '6-month'].includes(plan)) {
+      return res.status(400).json({ error: 'Invalid learning plan' });
+    }
+
+    const bp = await prisma.bengaliProgress.upsert({
+      where: { userId },
+      update: { learningPlan: plan, planStartDate: new Date() },
+      create: { userId, learningPlan: plan, planStartDate: new Date() }
+    });
+
+    res.json(bp);
+  } catch (error) {
+    console.error("Failed to save learning plan:", error);
+    res.status(500).json({ error: 'Failed to save learning plan' });
+  }
+});
+
+// POST /api/progress/bengali/letter
+app.post('/api/progress/bengali/letter', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const { letter, mastered } = req.body; // letter (e.g. "অ"), mastered (boolean)
+
+    if (!letter) {
+      return res.status(400).json({ error: 'Letter is required' });
+    }
+
+    let bp = await prisma.bengaliProgress.findUnique({ where: { userId } });
+    if (!bp) {
+      bp = await prisma.bengaliProgress.create({ data: { userId } });
+    }
+
+    let letters = bp.masteredLetters ? bp.masteredLetters.split(',').filter(Boolean) : [];
+    const index = letters.indexOf(letter);
+
+    let xpGained = 0;
+    if (mastered && index === -1) {
+      letters.push(letter);
+      xpGained = 10; // +10 XP for mastering a letter
+    } else if (!mastered && index !== -1) {
+      letters.splice(index, 1);
+    }
+
+    const updatedBp = await prisma.bengaliProgress.update({
+      where: { userId },
+      data: { masteredLetters: letters.join(',') }
+    });
+
+    if (xpGained > 0) {
+      // Update global XP and badges
+      let progress = await prisma.progress.findUnique({ where: { userId } });
+      if (!progress) {
+        progress = await prisma.progress.create({ data: { userId, badges: '' } });
+      }
+
+      let newBadges = progress.badges ? progress.badges.split(',').filter(Boolean) : [];
+      
+      // Let's say Phase 1 is letters: 11 vowels + 39 consonants = 50 letters
+      // If they mastered 50 letters, award them "Bornomala Master"
+      if (letters.length >= 50 && !newBadges.includes('Bornomala Master')) {
+        newBadges.push('Bornomala Master');
+      }
+
+      await prisma.progress.update({
+        where: { userId },
+        data: {
+          xp: { increment: xpGained },
+          badges: newBadges.join(',')
+        }
+      });
+    }
+
+    res.json(updatedBp);
+  } catch (error) {
+    console.error("Failed to update letter progress:", error);
+    res.status(500).json({ error: 'Failed to update letter progress' });
+  }
+});
+
+// POST /api/progress/bengali/word
+app.post('/api/progress/bengali/word', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const { word, mastered, isSpoken } = req.body; // word (e.g. "জল"), mastered (boolean), isSpoken (boolean)
+
+    if (!word) {
+      return res.status(400).json({ error: 'Word is required' });
+    }
+
+    let bp = await prisma.bengaliProgress.findUnique({ where: { userId } });
+    if (!bp) {
+      bp = await prisma.bengaliProgress.create({ data: { userId } });
+    }
+
+    let words = bp.masteredWords ? bp.masteredWords.split(',').filter(Boolean) : [];
+    const index = words.indexOf(word);
+
+    let xpGained = 0;
+    let newSpokenWordsCount = bp.spokenWordsCount;
+
+    if (mastered && index === -1) {
+      words.push(word);
+      xpGained += 15; // +15 XP for vocabulary word mastery
+    } else if (!mastered && index !== -1) {
+      words.splice(index, 1);
+    }
+
+    if (isSpoken) {
+      newSpokenWordsCount += 1;
+      xpGained += 10; // +10 XP for speaking a word correctly
+    }
+
+    const updatedBp = await prisma.bengaliProgress.update({
+      where: { userId },
+      data: { 
+        masteredWords: words.join(','),
+        spokenWordsCount: newSpokenWordsCount
+      }
+    });
+
+    if (xpGained > 0) {
+      let progress = await prisma.progress.findUnique({ where: { userId } });
+      if (!progress) {
+        progress = await prisma.progress.create({ data: { userId, badges: '' } });
+      }
+
+      let newBadges = progress.badges ? progress.badges.split(',').filter(Boolean) : [];
+      
+      // Award "Bengali Speaker" for speaking 5 words correctly
+      if (newSpokenWordsCount >= 5 && !newBadges.includes('Bengali Speaker')) {
+        newBadges.push('Bengali Speaker');
+      }
+
+      await prisma.progress.update({
+        where: { userId },
+        data: {
+          xp: { increment: xpGained },
+          badges: newBadges.join(',')
+        }
+      });
+    }
+
+    res.json(updatedBp);
+  } catch (error) {
+    console.error("Failed to update word progress:", error);
+    res.status(500).json({ error: 'Failed to update word progress' });
+  }
+});
+
+// POST /api/progress/bengali/phase
+app.post('/api/progress/bengali/phase', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const { phase } = req.body; // phase (number: 1, 2, or 3)
+
+    if (!phase || ![1, 2, 3].includes(phase)) {
+      return res.status(400).json({ error: 'Invalid phase' });
+    }
+
+    const bp = await prisma.bengaliProgress.upsert({
+      where: { userId },
+      update: { currentPhase: phase },
+      create: { userId, currentPhase: phase }
+    });
+
+    res.json(bp);
+  } catch (error) {
+    console.error("Failed to update phase:", error);
+    res.status(500).json({ error: 'Failed to update phase' });
+  }
+});
+
+// POST /api/progress/bengali/quiz
+app.post('/api/progress/bengali/quiz', authMiddleware, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const { phase, score } = req.body; // phase (number), score (number, percentage e.g. 100)
+
+    if (phase === undefined || score === undefined) {
+      return res.status(400).json({ error: 'Phase and score are required' });
+    }
+
+    let bp = await prisma.bengaliProgress.findUnique({ where: { userId } });
+    if (!bp) {
+      bp = await prisma.bengaliProgress.create({ data: { userId } });
+    }
+
+    let scoresObj: Record<string, number> = {};
+    if (bp.quizScores) {
+      try {
+        scoresObj = JSON.parse(bp.quizScores);
+      } catch (e) {
+        scoresObj = {};
+      }
+    }
+
+    const oldScore = scoresObj[`phase${phase}`] || 0;
+    let xpGained = 0;
+    
+    if (score > oldScore) {
+      scoresObj[`phase${phase}`] = score;
+      // Award XP for score improvement (e.g. +5 XP per 10% improvement)
+      xpGained = Math.max(0, Math.floor((score - oldScore) / 2));
+    }
+
+    const updatedBp = await prisma.bengaliProgress.update({
+      where: { userId },
+      data: { quizScores: JSON.stringify(scoresObj) }
+    });
+
+    if (xpGained > 0) {
+      let progress = await prisma.progress.findUnique({ where: { userId } });
+      if (!progress) {
+        progress = await prisma.progress.create({ data: { userId, badges: '' } });
+      }
+
+      let newBadges = progress.badges ? progress.badges.split(',').filter(Boolean) : [];
+      
+      // Award "Bengali Scholar" for scoring 100% on any phase quiz
+      if (score === 100 && !newBadges.includes('Bengali Scholar')) {
+        newBadges.push('Bengali Scholar');
+      }
+
+      await prisma.progress.update({
+        where: { userId },
+        data: {
+          xp: { increment: xpGained },
+          badges: newBadges.join(',')
+        }
+      });
+    }
+
+    res.json(updatedBp);
+  } catch (error) {
+    console.error("Failed to save quiz score:", error);
+    res.status(500).json({ error: 'Failed to save quiz score' });
+  }
+});
+
 // GET /api/deepdives
 app.get('/api/deepdives', authMiddleware, async (req: any, res: any) => {
   try {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Home, Flame, BookOpen, Library, BookMarked } from 'lucide-react';
+import { Home, Flame, BookOpen, Library, BookMarked, Languages } from 'lucide-react';
 import DailySparkView from './components/DailySparkView';
 import MoodTrackerModal from './components/MoodTrackerModal';
 import ProgressDashboard from './components/ProgressDashboard';
@@ -9,13 +9,14 @@ import DeepDiveLibrary from './components/DeepDiveLibrary';
 import DeepDiveDetail from './components/DeepDiveDetail';
 import ReadingShelf from './components/ReadingShelf';
 import BookDetailPage from './components/BookDetailPage';
+import BengaliLearning from './components/BengaliLearning';
 import { API_BASE_URL } from './config';
 import './index.css';
 
 const DISABLE_AUTH = false;
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'progress' | 'journal' | 'deepdives' | 'shelf'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'progress' | 'journal' | 'deepdives' | 'shelf' | 'bengali'>('home');
   const [selectedDeepDiveId, setSelectedDeepDiveId] = useState<number | null>(null);
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [showMoodTracker, setShowMoodTracker] = useState(false);
@@ -171,6 +172,8 @@ function App() {
             onBack={() => setSelectedBookId(null)}
           />
         )}
+
+        {activeTab === 'bengali' && <BengaliLearning token={token} />}
       </div>
 
       <nav className="navbar">
@@ -214,6 +217,15 @@ function App() {
         >
           <BookMarked size={24} />
           <span>Shelf</span>
+        </button>
+        <button
+          className={`nav-item ${activeTab === 'bengali' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('bengali');
+          }}
+        >
+          <Languages size={24} />
+          <span>Bengali</span>
         </button>
       </nav>
 

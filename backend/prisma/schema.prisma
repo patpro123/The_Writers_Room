@@ -23,6 +23,7 @@ model User {
   deepDiveProgress DeepDiveProgress[]
   books        Book[]
   passageAnswers BookPassageAnswer[]
+  bengaliProgress BengaliProgress?
 }
 
 model DailySpark {
@@ -169,4 +170,19 @@ model DailyObservationLyraChat {
   role           String   // "user" or "model"
   message        String
   createdAt      DateTime @default(now())
+}
+
+model BengaliProgress {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @unique
+  user              User      @relation(fields: [userId], references: [id])
+  masteredLetters   String    @default("")   // Comma-separated list (e.g. "অ,আ,ক")
+  masteredWords     String    @default("")   // Comma-separated list (e.g. "জল,বই")
+  spokenWordsCount  Int       @default(0)
+  currentPhase      Int       @default(1)    // 1, 2, or 3
+  quizScores        String    @default("{}") // JSON string of scores
+  learningPlan      String    @default("")   // "2-month", "3-month", "6-month"
+  planStartDate     DateTime? // When they enrolled in the plan
+  diagnosticScore   Int?      // Score on the optional placement test (out of 10)
+  updatedAt         DateTime  @updatedAt
 }
