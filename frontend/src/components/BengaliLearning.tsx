@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Languages, Volume2, Mic, MicOff, Eraser, BookMarked, Award, 
-  ChevronLeft, BookOpen, Compass, Search, Flame, Zap, CheckCircle2, 
-  X, RefreshCw, Play, Square, Check, AlertCircle, ArrowRight, Keyboard 
+  Languages, Volume2, Mic, Eraser, BookMarked, Award, 
+  ChevronLeft, BookOpen, Compass, Search, CheckCircle2, 
+  X, RefreshCw, Check, AlertCircle, ArrowRight, Keyboard 
 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 
@@ -268,7 +268,6 @@ export default function BengaliLearning({ token }: { token: string }) {
   const [quizScore, setQuizScore] = useState(0);
   const [currentQuizQ, setCurrentQuizQ] = useState(0);
   const [quizSelectedAns, setQuizSelectedAns] = useState<number | null>(null);
-  const [quizAnswers, setQuizAnswers] = useState<boolean[]>([]);
 
   // Wikipedia Search states
   const [wikiQuery, setWikiQuery] = useState("রবীন্দ্রনাথ ঠাকুর");
@@ -287,7 +286,6 @@ export default function BengaliLearning({ token }: { token: string }) {
   const [litAuthor, setLitAuthor] = useState("All");
   const [litExtract, setLitExtract] = useState("");
   const [litTitle, setLitTitle] = useState("");
-  const [loadingLit, setLoadingLit] = useState(false);
   const [litError, setLitError] = useState("");
   const [hasAwardedLitXP, setHasAwardedLitXP] = useState(false);
   
@@ -532,54 +530,6 @@ export default function BengaliLearning({ token }: { token: string }) {
     }
   };
 
-  const fetchLiteraturePassage = async (queryTitle: string) => {
-    setLoadingLit(true);
-    setLitError("");
-    setLitExtract("");
-    setLitTitle("");
-    setHasAwardedLitXP(false);
-
-    try {
-      const url = `https://bn.wikisource.org/w/api.php?action=query&format=json&origin=*&prop=extracts&explaintext=true&titles=${encodeURIComponent(queryTitle)}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      const pages = data.query?.pages;
-      if (!pages) {
-        setLitError("No pages found on Wikisource.");
-        return;
-      }
-      
-      const pageId = Object.keys(pages)[0];
-      if (pageId === "-1") {
-        setLitError("Could not retrieve literature passage text. Wikisource page not found.");
-        return;
-      }
-
-      const page = pages[pageId];
-      let text = page.extract || "";
-      
-      text = text.replace(/===[^=]+===/g, "").replace(/==[^=]+==/g, "").trim();
-
-      const words = text.split(/\s+/).filter(Boolean);
-      if (words.length > 180) {
-        text = words.slice(0, 180).join(" ") + "...";
-      }
-
-      if (!text) {
-        setLitError("The Wikisource page is currently empty or contains only scan indexes.");
-        return;
-      }
-
-      setLitTitle(page.title);
-      setLitExtract(text);
-    } catch (e) {
-      console.error(e);
-      setLitError("Failed to connect to Wikisource API.");
-    } finally {
-      setLoadingLit(false);
-    }
-  };
 
   const awardLitXP = async () => {
     if (hasAwardedLitXP) return;
@@ -886,7 +836,6 @@ export default function BengaliLearning({ token }: { token: string }) {
     setQuizScore(0);
     setCurrentQuizQ(0);
     setQuizSelectedAns(null);
-    setQuizAnswers([]);
     setShowQuiz(true);
   };
 
@@ -898,7 +847,6 @@ export default function BengaliLearning({ token }: { token: string }) {
     if (quizSelectedAns === null) return;
     
     const isCorrect = quizSelectedAns === DIAGNOSTIC_QUESTIONS[currentQuizQ].correct;
-    setQuizAnswers(prev => [...prev, isCorrect]);
     if (isCorrect) setQuizScore(prev => prev + 1);
 
     setTimeout(() => {
@@ -2622,11 +2570,7 @@ export default function BengaliLearning({ token }: { token: string }) {
             <RefreshCw size={12} /> Dynamic Refresh (Random)
           </button>
         </div>
-
         {/* Literature Extract Display */}
-        {loadingLit && (
-          <div className="text-center" style={{ padding: '24px' }}>Loading literature passage from Wikisource...</div>
-        )}
 
         {litError && (
           <div style={{ 
