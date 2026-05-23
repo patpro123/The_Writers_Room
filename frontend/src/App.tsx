@@ -68,6 +68,28 @@ function App() {
     setUser(null);
   };
 
+  const handleLanguageToggle = async () => {
+    if (!token || !user) return;
+    const currentLang = user.preferredLanguage || 'en';
+    const newLang = currentLang === 'en' ? 'bn' : 'en';
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/user/language`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ language: newLang })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUser((prevUser: any) => ({ ...prevUser, preferredLanguage: data.preferredLanguage }));
+      }
+    } catch (err) {
+      console.error('Failed to change language preference', err);
+    }
+  };
+
   const handleMoodLogged = async (mood: string, reflection: string) => {
     try {
       if (!token) return;
@@ -99,9 +121,27 @@ function App() {
     <>
       <div className="main-content">
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', opacity: 0.8 }}>
             {user.avatarUrl && <img src={user.avatarUrl} alt="Avatar" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />}
-            <span style={{ fontSize: '12px', fontWeight: 600 }}>{user.name}</span>
+            <span style={{ fontSize: '12px', fontWeight: 600 }}>{user.name || user.username}</span>
+            <button
+              onClick={handleLanguageToggle}
+              style={{
+                fontSize: '11px',
+                padding: '4px 8px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-border)',
+                backgroundColor: 'var(--color-surface)',
+                color: 'var(--color-primary)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              {user.preferredLanguage === 'bn' ? '🇧🇩 বাংলা' : '🇬🇧 English'}
+            </button>
             <button onClick={handleLogout} style={{ fontSize: '11px', textDecoration: 'underline', marginLeft: '8px' }}>Log out</button>
           </div>
         </div>

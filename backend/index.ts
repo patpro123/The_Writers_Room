@@ -285,7 +285,7 @@ app.post('/api/auth/login', async (req: any, res: any) => {
     // Issue JWT
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({ token, user: { id: user.id, username: user.username, name: user.name, avatarUrl: user.avatarUrl } });
+    res.json({ token, user: { id: user.id, username: user.username, name: user.name, avatarUrl: user.avatarUrl, preferredLanguage: user.preferredLanguage } });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: 'Login failed' });
@@ -301,6 +301,26 @@ app.get('/api/user/me', authMiddleware, async (req: any, res: any) => {
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// PUT /api/user/language
+app.put('/api/user/language', authMiddleware, async (req: any, res: any) => {
+  try {
+    const { language } = req.body;
+    if (language !== 'en' && language !== 'bn') {
+      return res.status(400).json({ error: 'Invalid language preference. Must be "en" or "bn"' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { preferredLanguage: language }
+    });
+
+    res.json({ message: 'Language preference updated successfully', preferredLanguage: user.preferredLanguage });
+  } catch (error) {
+    console.error("Failed to update language:", error);
+    res.status(500).json({ error: 'Failed to update language preference' });
   }
 });
 
@@ -458,10 +478,14 @@ app.post('/api/journal/:entryId/lyra-chat', authMiddleware, async (req: any, res
       orderBy: { createdAt: 'asc' }
     });
 
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const preferredLang = user?.preferredLanguage || 'en';
+
     const aiReply = await critiqueDailyObservation(
       entry.dailySpark.prompt,
       entry.content,
-      history.slice(0, -1).map(h => ({ role: h.role, message: h.message }))
+      history.slice(0, -1).map(h => ({ role: h.role, message: h.message })),
+      preferredLang
     );
 
     const aiMessage = await prisma.dailyObservationLyraChat.create({
@@ -614,6 +638,9 @@ app.post('/api/deepdives/:id/progress', authMiddleware, async (req: any, res: an
     const deepDiveId = parseInt(req.params.id);
     const { status, newAnswers } = req.body;
     
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const preferredLang = user?.preferredLanguage || 'en';
+
     let progress = await prisma.deepDiveProgress.findUnique({
       where: { userId_deepDiveId: { userId, deepDiveId } }
     });
@@ -633,7 +660,7 @@ app.post('/api/deepdives/:id/progress', authMiddleware, async (req: any, res: an
           const debateId = parseInt(key.split('_')[1]);
           const debate = await prisma.debateCard.findUnique({ where: { id: debateId } });
           if (debate) {
-             const aiResponse = await evaluateDebatePosition(debate.claim, newAnswers[key]);
+             const aiResponse = await evaluateDebatePosition(debate.claim, newAnswers[key], preferredLang);
              answersObj[`debate_feedback_${debateId}`] = aiResponse;
           }
         } else if (key.startsWith('passage_')) {
@@ -641,7 +668,7 @@ app.post('/api/deepdives/:id/progress', authMiddleware, async (req: any, res: an
           const passageId = parseInt(key.split('_')[1]);
           const passage = await prisma.passageQuiz.findUnique({ where: { id: passageId } });
           if (passage) {
-             const aiResponse = await evaluatePassageAnalysis(passage.passageText, passage.questionText, newAnswers[key]);
+             const aiResponse = await evaluatePassageAnalysis(passage.passageText, passage.questionText, newAnswers[key], preferredLang);
              answersObj[`passage_feedback_${passageId}`] = aiResponse;
           }
         }
@@ -685,9 +712,14 @@ app.get('/api/books/google-search', authMiddleware, async (req: any, res: any) =
   if (!q) return res.status(400).json({ error: 'Query required' });
 
   try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const preferredLang = user?.preferredLanguage === 'bn' ? 'bn' : '';
+    const lang = req.query.lang || preferredLang;
+    const langParam = lang ? `&langRestrict=${lang}` : '';
+
     const apiKey = process.env.GOOGLE_BOOKS_API;
     const keyParam = apiKey ? `&key=${apiKey}` : '';
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q as string)}&maxResults=10&printType=books${keyParam}`;
+    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q as string)}&maxResults=10&printType=books${keyParam}${langParam}`;
     const response = await fetch(url);
     const data: any = await response.json();
 
@@ -861,11 +893,15 @@ app.post('/api/books/:id/chat', authMiddleware, async (req: any, res: any) => {
       take: 20
     });
 
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const preferredLang = user?.preferredLanguage || 'en';
+
     const aiReply = await chatAboutBook(
       { title: book.title, author: book.author, currentChapter: book.currentChapter },
       book.notes.map(n => n.content),
       history.slice(0, -1).map(h => ({ role: h.role, message: h.message })),
-      message
+      message,
+      preferredLang
     );
 
     const aiMessage = await prisma.bookChat.create({
@@ -972,7 +1008,10 @@ app.post('/api/books/passages/:passageId/answer', authMiddleware, async (req: an
     });
     if (!passage || passage.book.userId !== userId) return res.status(404).json({ error: 'Passage not found' });
 
-    const aiFeedback = await evaluatePassageAnalysis(passage.passageText, passage.questionText, answer);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const preferredLang = user?.preferredLanguage || 'en';
+
+    const aiFeedback = await evaluatePassageAnalysis(passage.passageText, passage.questionText, answer, preferredLang);
 
     const result = await prisma.bookPassageAnswer.upsert({
       where: { userId_passageId: { userId, passageId } },

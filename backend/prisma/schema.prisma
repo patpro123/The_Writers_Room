@@ -16,6 +16,7 @@ model User {
   passwordHash String?
   name         String?
   avatarUrl    String?
+  preferredLanguage String @default("en")
   progress     Progress?
   moodLogs     MoodLog[]
   journalEntries JournalEntry[]

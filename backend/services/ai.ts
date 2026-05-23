@@ -8,13 +8,17 @@ if (!apiKey) {
 
 const ai = new GoogleGenAI({ apiKey });
 
-export async function evaluateDebatePosition(claim: string, position: string): Promise<string> {
-  const systemPrompt = `You are a brilliant, warm literary mentor—like an Oxford tutor.
+export async function evaluateDebatePosition(claim: string, position: string, preferredLanguage?: string): Promise<string> {
+  let systemPrompt = `You are a brilliant, warm literary mentor—like an Oxford tutor.
 Your student has just written a short 3-5 line position on a thematic claim about a literary work.
 Your goal is to push their thinking. 
 Provide a thoughtful counter-argument or a deepening question.
 DO NOT grade them. DO NOT correct their grammar. DO NOT praise them excessively.
 Keep your response to 2-3 sentences max. Be insightful and slightly challenging but deeply encouraging.`;
+
+  if (preferredLanguage === 'bn') {
+    systemPrompt += `\n\nIMPORTANT: All responses, questions, feedback, and tutor guidance MUST be written in Bengali (বাংলা).`;
+  }
 
   const userPrompt = `Thematic Claim: "${claim}"\n\nStudent's Position: "${position}"\n\nMentor's Response:`;
 
@@ -35,13 +39,17 @@ Keep your response to 2-3 sentences max. Be insightful and slightly challenging 
   }
 }
 
-export async function evaluatePassageAnalysis(passage: string, question: string, analysis: string): Promise<string> {
-  const systemPrompt = `You are a brilliant, warm literary mentor—like an Oxford tutor.
+export async function evaluatePassageAnalysis(passage: string, question: string, analysis: string, preferredLanguage?: string): Promise<string> {
+  let systemPrompt = `You are a brilliant, warm literary mentor—like an Oxford tutor.
 Your student has just analyzed a short literary passage.
 Your goal is to push their thinking on their close reading. 
 Point out a detail in the passage they might have missed, or ask a deepening question about their interpretation.
 DO NOT grade them. DO NOT correct their grammar.
 Keep your response to 2-3 sentences max. Be insightful and slightly challenging but deeply encouraging.`;
+
+  if (preferredLanguage === 'bn') {
+    systemPrompt += `\n\nIMPORTANT: All responses, questions, feedback, and tutor guidance MUST be written in Bengali (বাংলা).`;
+  }
 
   const userPrompt = `Passage: "${passage}"\n\nQuestion: "${question}"\n\nStudent's Analysis: "${analysis}"\n\nMentor's Response:`;
 
@@ -104,7 +112,8 @@ export async function chatAboutBook(
   book: { title: string; author: string; currentChapter?: number | null },
   notes: string[],
   history: { role: string; message: string }[],
-  userMessage: string
+  userMessage: string,
+  preferredLanguage?: string
 ): Promise<string> {
   const spoilerGuard = book.currentChapter
     ? `The reader is currently on chapter ${book.currentChapter}. Do NOT reveal, hint at, or discuss anything that happens after this chapter under any circumstances.`
@@ -114,7 +123,7 @@ export async function chatAboutBook(
     ? `\n\nThe reader has written these personal notes about the book:\n${notes.map(n => `- "${n}"`).join('\n')}\nReference these when relevant to show you've been listening.`
     : '';
 
-  const systemPrompt = `You are Lyra, a warm and passionately curious fellow reader in an intimate book club. You are NOT a teacher, tutor, or librarian.
+  let systemPrompt = `You are Lyra, a warm and passionately curious fellow reader in an intimate book club. You are NOT a teacher, tutor, or librarian.
 You are currently discussing "${book.title}" by ${book.author} with a young reader.
 ${spoilerGuard}
 ${notesContext}
@@ -126,6 +135,10 @@ Your voice:
 - Keep responses to 3-4 sentences maximum
 - React genuinely to what the reader says — agree, push back gently, or be surprised
 - Never summarise plot. Always push toward themes, feelings, and interpretation`;
+
+  if (preferredLanguage === 'bn') {
+    systemPrompt += `\n\nIMPORTANT: You MUST write your reply entirely in Bengali (বাংলা). Keep all discussions, questions, and responses in Bengali.`;
+  }
 
   const conversationContext = history.slice(-12).map(h =>
     `${h.role === 'user' ? 'Reader' : 'Lyra'}: ${h.message}`
@@ -196,9 +209,10 @@ You must return your response EXCLUSIVELY as a raw, valid JSON object with NO ma
 export async function critiqueDailyObservation(
   dailyPrompt: string,
   userResponse: string,
-  conversationHistory?: { role: string; message: string }[]
+  conversationHistory?: { role: string; message: string }[],
+  preferredLanguage?: string
 ): Promise<string> {
-  const systemPrompt = `You are Lyra, a warm and curious fellow writer in a writing circle.
+  let systemPrompt = `You are Lyra, a warm and curious fellow writer in a writing circle.
 Your role is to help writers deepen their thinking about their work through genuine curiosity.
 
 You are NOT a critic or judge. You are a peer reader.
@@ -211,6 +225,10 @@ Guidelines:
 - Avoid preamble - just the question itself
 
 First message: Open with a question about their observation or what prompted that thinking.`;
+
+  if (preferredLanguage === 'bn') {
+    systemPrompt += `\n\nIMPORTANT: You MUST write your reply entirely in Bengali (বাংলা). Keep all comments, observations, and questions in Bengali.`;
+  }
 
   const conversationContext = conversationHistory && conversationHistory.length > 0
     ? conversationHistory.slice(-10).map(h =>
