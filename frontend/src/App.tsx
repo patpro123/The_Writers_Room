@@ -121,7 +121,31 @@ function App() {
   return (
     <>
       <div className="main-content">
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '8px' }}>
+          {/* Bengali Learning entry button */}
+          <button
+            onClick={() => setActiveTab('bengali')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: activeTab === 'bengali' ? 'var(--color-primary)' : 'rgba(140, 74, 50, 0.08)',
+              color: activeTab === 'bengali' ? 'white' : 'var(--color-primary)',
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '12px',
+              fontWeight: 600,
+              boxShadow: 'var(--shadow-sm)',
+              transition: 'all 0.2s',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <Languages size={14} />
+            <span>{activeTab === 'bengali' ? 'Bilingual Study' : 'Learn Bengali'}</span>
+          </button>
+
+          {/* User profile info & preferences */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', opacity: 0.8 }}>
             {user.avatarUrl && <img src={user.avatarUrl} alt="Avatar" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />}
             <span style={{ fontSize: '12px', fontWeight: 600 }}>{user.name || user.username}</span>
@@ -217,15 +241,6 @@ function App() {
         >
           <BookMarked size={24} />
           <span>Shelf</span>
-        </button>
-        <button
-          className={`nav-item ${activeTab === 'bengali' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTab('bengali');
-          }}
-        >
-          <Languages size={24} />
-          <span>Bengali</span>
         </button>
       </nav>
 
